@@ -5,12 +5,11 @@
  * Em produção (VPS), faz chamadas reais para /api/*
  */
 
-// Detecta se está rodando no Lovable ou na VPS
-const isLovablePreview = window.location.hostname.includes('lovable.app') || 
-                          window.location.hostname === 'localhost';
+// Forçar uso da API real (desabilitar mock)
+const isLovablePreview = false;
 
-// URL base da API (em produção, é o mesmo servidor)
-const API_BASE = isLovablePreview ? '' : '';
+// URL base da API no seu servidor VPS
+const API_BASE = 'http://168.75.85.54:3007';
 
 export interface ServerStats {
   cpu: number;
