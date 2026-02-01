@@ -5,7 +5,8 @@ import { StatsCard } from "@/components/panel/StatsCard";
 import { SystemCharts } from "@/components/panel/SystemCharts";
 import { PlayersList } from "@/components/panel/PlayersList";
 import { FileUploader } from "@/components/panel/FileUploader";
-import { Users, Cpu, HardDrive, Clock, Server, Activity } from "lucide-react";
+import { ServerConsole } from "@/components/panel/ServerConsole";
+import { Users, Cpu, HardDrive, Clock } from "lucide-react";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -18,6 +19,8 @@ const Index = () => {
         return <PlayersList />;
       case 'resources':
         return <SystemCharts />;
+      case 'console':
+        return <ServerConsole />;
       default:
         return (
           <div className="space-y-6">
