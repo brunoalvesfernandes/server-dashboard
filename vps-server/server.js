@@ -19,6 +19,7 @@ const path = require('path');
 const os = require('os');
 const { exec } = require('child_process');
 const fs = require('fs');
+const multer = require('multer');
 
 const app = express();
 const PORT = process.env.PORT || 3007;
@@ -28,6 +29,34 @@ const CONFIG = {
   serviceName: process.env.SERVICE_NAME || 'hytale.service',
   serverDir: process.env.SERVER_DIR || '/opt/hytale',
 };
+
+// Configuração do multer para upload de arquivos
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadPath = req.body.path || '';
+    const safePath = path.resolve(CONFIG.serverDir, uploadPath);
+    
+    // Verifica se está dentro do diretório permitido
+    if (!safePath.startsWith(CONFIG.serverDir)) {
+      return cb(new Error('Acesso negado'), null);
+    }
+    
+    // Cria o diretório se não existir
+    if (!fs.existsSync(safePath)) {
+      fs.mkdirSync(safePath, { recursive: true });
+    }
+    
+    cb(null, safePath);
+  },
+  filename: (req, file, cb) => {
+    cb(null, file.originalname);
+  }
+});
+
+const upload = multer({ 
+  storage,
+  limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit
+});
 
 // Middlewares
 app.use(cors());
@@ -167,6 +196,57 @@ app.get('/api/files', async (req, res) => {
     });
   } catch (error) {
     console.error('Erro em /api/files:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/upload - Upload de arquivo
+app.post('/api/upload', upload.single('file'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+    }
+    
+    res.json({ 
+      success: true, 
+      message: `Arquivo ${req.file.originalname} enviado com sucesso`,
+      file: {
+        name: req.file.originalname,
+        size: req.file.size,
+        path: req.body.path || '/'
+      }
+    });
+  } catch (error) {
+    console.error('Erro em /api/upload:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE /api/files/:path - Deletar arquivo
+app.delete('/api/files/:filePath(*)', (req, res) => {
+  try {
+    const filePath = req.params.filePath;
+    const safePath = path.resolve(CONFIG.serverDir, filePath);
+    
+    // Verifica se está dentro do diretório permitido
+    if (!safePath.startsWith(CONFIG.serverDir)) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+    
+    if (!fs.existsSync(safePath)) {
+      return res.status(404).json({ error: 'Arquivo não encontrado' });
+    }
+    
+    const stat = fs.statSync(safePath);
+    if (stat.isDirectory()) {
+      fs.rmdirSync(safePath, { recursive: true });
+    } else {
+      fs.unlinkSync(safePath);
+    }
+    
+    res.json({ success: true, message: 'Arquivo deletado com sucesso' });
+  } catch (error) {
+    console.error('Erro ao deletar arquivo:', error);
     res.status(500).json({ error: error.message });
   }
 });

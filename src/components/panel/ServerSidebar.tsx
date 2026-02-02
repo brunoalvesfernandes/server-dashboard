@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { 
   Home, 
   FolderOpen, 
@@ -7,10 +8,12 @@ import {
   Terminal,
   Power,
   Database,
-  Shield
+  Shield,
+  RotateCw,
+  Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useServerData } from "@/hooks/useServerData";
 
 interface NavItem {
   icon: React.ElementType;
@@ -22,7 +25,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { icon: Home, label: "Dashboard", id: "dashboard" },
   { icon: FolderOpen, label: "Arquivos", id: "files" },
-  { icon: Users, label: "Players", id: "players", badge: 12 },
+  { icon: Users, label: "Players", id: "players" },
   { icon: Activity, label: "Recursos", id: "resources" },
   { icon: Terminal, label: "Console", id: "console" },
   { icon: Database, label: "Backups", id: "backups" },
@@ -36,7 +39,28 @@ interface ServerSidebarProps {
 }
 
 export function ServerSidebar({ activeTab, onTabChange }: ServerSidebarProps) {
-  const [serverStatus, setServerStatus] = useState<'online' | 'offline' | 'starting'>('online');
+  const { stats, players, serverAction } = useServerData();
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  const serverStatus = stats?.serverStatus || 'offline';
+  const onlinePlayers = players?.online || 0;
+
+  const handleServerAction = async (action: 'start' | 'stop' | 'restart') => {
+    if (actionLoading) return;
+    
+    setActionLoading(action);
+    try {
+      await serverAction(action);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Update nav items with player count
+  const navItemsWithBadges = navItems.map(item => ({
+    ...item,
+    badge: item.id === 'players' ? onlinePlayers : undefined,
+  }));
 
   return (
     <aside className="w-64 h-screen bg-sidebar border-r border-sidebar-border flex flex-col fixed left-0 top-0">
@@ -63,41 +87,77 @@ export function ServerSidebar({ activeTab, onTabChange }: ServerSidebarProps) {
             <div className={cn(
               "flex items-center gap-2 text-xs font-medium px-2 py-1 rounded-full",
               serverStatus === 'online' && "bg-success/20 text-success",
-              serverStatus === 'offline' && "bg-destructive/20 text-destructive",
-              serverStatus === 'starting' && "bg-warning/20 text-warning"
+              serverStatus === 'offline' && "bg-destructive/20 text-destructive"
             )}>
               <span className={cn(
                 "w-2 h-2 rounded-full",
                 serverStatus === 'online' && "bg-success",
-                serverStatus === 'offline' && "bg-destructive",
-                serverStatus === 'starting' && "bg-warning animate-pulse"
+                serverStatus === 'offline' && "bg-destructive"
               )} />
-              {serverStatus === 'online' && "Online"}
-              {serverStatus === 'offline' && "Offline"}
-              {serverStatus === 'starting' && "Iniciando..."}
+              {serverStatus === 'online' ? "Online" : "Offline"}
             </div>
           </div>
           
           <div className="flex gap-2">
-            <button 
-              onClick={() => setServerStatus(serverStatus === 'online' ? 'offline' : 'starting')}
-              className={cn(
-                "flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all duration-200",
-                serverStatus === 'online' 
-                  ? "bg-destructive/20 text-destructive hover:bg-destructive/30"
-                  : "bg-success/20 text-success hover:bg-success/30"
-              )}
-            >
-              <Power className="w-4 h-4" />
-              {serverStatus === 'online' ? 'Parar' : 'Iniciar'}
-            </button>
+            {serverStatus === 'online' ? (
+              <>
+                <button 
+                  onClick={() => handleServerAction('stop')}
+                  disabled={!!actionLoading}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all duration-200",
+                    "bg-destructive/20 text-destructive hover:bg-destructive/30",
+                    actionLoading && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  {actionLoading === 'stop' ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Power className="w-4 h-4" />
+                  )}
+                  Parar
+                </button>
+                <button 
+                  onClick={() => handleServerAction('restart')}
+                  disabled={!!actionLoading}
+                  className={cn(
+                    "flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all duration-200",
+                    "bg-warning/20 text-warning hover:bg-warning/30",
+                    actionLoading && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  {actionLoading === 'restart' ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <RotateCw className="w-4 h-4" />
+                  )}
+                </button>
+              </>
+            ) : (
+              <button 
+                onClick={() => handleServerAction('start')}
+                disabled={!!actionLoading}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all duration-200",
+                  "bg-success/20 text-success hover:bg-success/30",
+                  actionLoading && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                {actionLoading === 'start' ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Power className="w-4 h-4" />
+                )}
+                Iniciar
+              </button>
+            )}
           </div>
         </div>
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto scrollbar-thin">
-        {navItems.map((item) => {
+        {navItemsWithBadges.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
           
@@ -118,7 +178,7 @@ export function ServerSidebar({ activeTab, onTabChange }: ServerSidebarProps) {
                 "group-hover:scale-110"
               )} />
               <span className="flex-1 text-left">{item.label}</span>
-              {item.badge && (
+              {item.badge !== undefined && item.badge > 0 && (
                 <span className={cn(
                   "px-2 py-0.5 text-xs rounded-full",
                   isActive 
@@ -148,8 +208,8 @@ export function ServerSidebar({ activeTab, onTabChange }: ServerSidebarProps) {
             <span className="text-foreground font-mono">25565</span>
           </div>
           <div className="flex justify-between">
-            <span>Versão:</span>
-            <span className="text-foreground">1.0.0</span>
+            <span>Uptime:</span>
+            <span className="text-foreground">{stats?.uptime || '-'}</span>
           </div>
         </div>
       </div>

@@ -107,5 +107,24 @@ export const api = {
     apiRequest<{ success: boolean; message: string }>(`/api/server/${action}`, { method: 'POST' }),
   getLogs: (lines = 100) => apiRequest<{ logs: string[] }>(`/api/logs?lines=${lines}`),
   getFiles: (path = '') => apiRequest<{ path: string; files: any[] }>(`/api/files?path=${encodeURIComponent(path)}`),
+  uploadFile: async (file: File, path: string = '') => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('path', path);
+    
+    const response = await fetch(`${API_BASE}/api/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
+      throw new Error(error.error || `HTTP ${response.status}`);
+    }
+    
+    return response.json();
+  },
+  deleteFile: (filePath: string) => 
+    apiRequest<{ success: boolean; message: string }>(`/api/files/${encodeURIComponent(filePath)}`, { method: 'DELETE' }),
   isLovablePreview,
 };
