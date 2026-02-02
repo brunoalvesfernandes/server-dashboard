@@ -6,6 +6,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useAuth } from "@/components/AuthGuard";
 import heroBanner from "@/assets/hero-banner.jpg";
 
 interface ServerHeaderProps {
@@ -13,6 +14,7 @@ interface ServerHeaderProps {
 }
 
 export function ServerHeader({ serverName = "Hytale Brasil" }: ServerHeaderProps) {
+  const { user, logout } = useAuth();
   return (
     <header className="h-16 border-b border-border bg-card/50 backdrop-blur-xl sticky top-0 z-40">
       <div className="h-full px-6 flex items-center justify-between gap-4">
@@ -63,14 +65,14 @@ export function ServerHeader({ serverName = "Hytale Brasil" }: ServerHeaderProps
                 <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
                   <User className="w-4 h-4 text-primary" />
                 </div>
-                <span className="text-sm font-medium hidden sm:block">Admin</span>
+                <span className="text-sm font-medium hidden sm:block capitalize">{user || 'Admin'}</span>
                 <ChevronDown className="w-4 h-4 text-muted-foreground" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <div className="px-3 py-2">
-                <p className="font-medium">Administrador</p>
-                <p className="text-xs text-muted-foreground">admin@hytale.net</p>
+                <p className="font-medium capitalize">{user || 'Administrador'}</p>
+                <p className="text-xs text-muted-foreground">{user}@hytale.net</p>
               </div>
               <DropdownMenuSeparator />
               <DropdownMenuItem className="cursor-pointer">
@@ -82,7 +84,7 @@ export function ServerHeader({ serverName = "Hytale Brasil" }: ServerHeaderProps
                 Configurações
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="cursor-pointer text-destructive">
+              <DropdownMenuItem className="cursor-pointer text-destructive" onClick={logout}>
                 <LogOut className="w-4 h-4 mr-2" />
                 Sair
               </DropdownMenuItem>

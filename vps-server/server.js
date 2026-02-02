@@ -33,7 +33,8 @@ const CONFIG = {
 // Configuração do multer para upload de arquivos
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadPath = req.body.path || '';
+    let uploadPath = req.query.path || '';
+    uploadPath = uploadPath.replace(/^\/+/, '');
     const safePath = path.resolve(CONFIG.serverDir, uploadPath);
     
     // Verifica se está dentro do diretório permitido
@@ -171,7 +172,9 @@ app.get('/api/logs', async (req, res) => {
 // GET /api/files - Lista arquivos
 app.get('/api/files', async (req, res) => {
   try {
-    const requestedPath = req.query.path || '';
+    let requestedPath = req.query.path || '';
+    // remove / inicial para evitar path absoluto
+    requestedPath = requestedPath.replace(/^\/+/, '');
     const safePath = path.resolve(CONFIG.serverDir, requestedPath);
     
     if (!safePath.startsWith(CONFIG.serverDir)) {
@@ -213,7 +216,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
       file: {
         name: req.file.originalname,
         size: req.file.size,
-        path: req.body.path || '/'
+        path: '/' + (req.query.path || '')
       }
     });
   } catch (error) {
@@ -225,7 +228,8 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 // DELETE /api/files/:path - Deletar arquivo
 app.delete('/api/files/:filePath(*)', (req, res) => {
   try {
-    const filePath = req.params.filePath;
+    let filePath = req.params.filePath;
+    filePath = filePath.replace(/^\/+/, '');
     const safePath = path.resolve(CONFIG.serverDir, filePath);
     
     // Verifica se está dentro do diretório permitido
