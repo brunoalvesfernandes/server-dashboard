@@ -13,7 +13,6 @@ import {
   CheckCircle,
   XCircle,
   Loader2,
-  Plus,
   ChevronRight,
   RefreshCw,
   ArrowLeft
@@ -21,6 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 import { api } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 interface ServerFile {
   name: string;
@@ -63,6 +63,8 @@ export function FileUploader() {
   const [currentPath, setCurrentPath] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deletingFile, setDeletingFile] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const fetchFiles = useCallback(async (path: string = '') => {
     setLoading(true);
@@ -106,9 +108,10 @@ export function FileUploader() {
   // Breadcrumb
   const breadcrumbs = ['root', ...currentPath.split('/').filter(Boolean)];
 
-  const simulateUpload = (file: File) => {
+  const uploadFile = async (file: File) => {
+    const uploadId = Date.now().toString();
     const newUpload: UploadingFile = {
-      id: Date.now().toString(),
+      id: uploadId,
       name: file.name,
       size: file.size,
       type: 'file',
@@ -118,30 +121,51 @@ export function FileUploader() {
 
     setUploadingFiles(prev => [newUpload, ...prev]);
 
-    // Simulate upload progress (em produção, usar FormData + fetch)
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += Math.random() * 20;
-      if (progress >= 100) {
-        progress = 100;
-        clearInterval(interval);
-        setUploadingFiles(prev => 
-          prev.map(f => 
-            f.id === newUpload.id 
-              ? { ...f, status: 'success', progress: 100 }
-              : f
-          )
-        );
-        // Atualiza lista após upload
-        setTimeout(() => fetchFiles(currentPath), 500);
-      } else {
-        setUploadingFiles(prev => 
-          prev.map(f => 
-            f.id === newUpload.id ? { ...f, progress: Math.round(progress) } : f
-          )
-        );
-      }
-    }, 200);
+    try {
+      // Update progress to show upload is happening
+      setUploadingFiles(prev => 
+        prev.map(f => f.id === uploadId ? { ...f, progress: 50 } : f)
+      );
+
+      await api.uploadFile(file, currentPath);
+
+      setUploadingFiles(prev => 
+        prev.map(f => 
+          f.id === uploadId 
+            ? { ...f, status: 'success', progress: 100 }
+            : f
+        )
+      );
+
+      toast({
+        title: 'Sucesso',
+        description: `${file.name} enviado com sucesso`,
+      });
+
+      // Refresh file list
+      setTimeout(() => {
+        fetchFiles(currentPath);
+        // Remove from uploading list after a moment
+        setTimeout(() => {
+          setUploadingFiles(prev => prev.filter(f => f.id !== uploadId));
+        }, 2000);
+      }, 500);
+    } catch (err) {
+      console.error('Erro ao fazer upload:', err);
+      setUploadingFiles(prev => 
+        prev.map(f => 
+          f.id === uploadId 
+            ? { ...f, status: 'error', progress: 0 }
+            : f
+        )
+      );
+
+      toast({
+        title: 'Erro no upload',
+        description: `Falha ao enviar ${file.name}`,
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -149,16 +173,42 @@ export function FileUploader() {
     setIsDragging(false);
     
     const droppedFiles = Array.from(e.dataTransfer.files);
-    droppedFiles.forEach(simulateUpload);
-  }, []);
+    droppedFiles.forEach(uploadFile);
+  }, [currentPath]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
-    selectedFiles.forEach(simulateUpload);
+    selectedFiles.forEach(uploadFile);
   };
 
   const handleDeleteUpload = (id: string) => {
     setUploadingFiles(prev => prev.filter(f => f.id !== id));
+  };
+
+  const handleDeleteFile = async (file: ServerFile) => {
+    if (deletingFile) return;
+    
+    setDeletingFile(file.path);
+    try {
+      await api.deleteFile(file.path);
+      
+      toast({
+        title: 'Sucesso',
+        description: `${file.name} deletado com sucesso`,
+      });
+      
+      // Refresh file list
+      fetchFiles(currentPath);
+    } catch (err) {
+      console.error('Erro ao deletar arquivo:', err);
+      toast({
+        title: 'Erro',
+        description: `Falha ao deletar ${file.name}`,
+        variant: 'destructive',
+      });
+    } finally {
+      setDeletingFile(null);
+    }
   };
 
   return (
@@ -280,7 +330,7 @@ export function FileUploader() {
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-6 h-6 animate-spin text-primary" />
           </div>
-        ) : files.length === 0 ? (
+        ) : files.length === 0 && uploadingFiles.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
             <FolderOpen className="w-12 h-12 mx-auto mb-3 opacity-50" />
             <p>Diretório vazio</p>
@@ -291,17 +341,37 @@ export function FileUploader() {
             {uploadingFiles.map((file) => (
               <div 
                 key={file.id}
-                className="flex items-center gap-4 p-4 rounded-xl bg-primary/10 border border-primary/30"
+                className={cn(
+                  "flex items-center gap-4 p-4 rounded-xl border",
+                  file.status === 'uploading' && "bg-primary/10 border-primary/30",
+                  file.status === 'success' && "bg-success/10 border-success/30",
+                  file.status === 'error' && "bg-destructive/10 border-destructive/30"
+                )}
               >
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-primary/20 text-primary">
-                  <Loader2 className="w-5 h-5 animate-spin" />
+                <div className={cn(
+                  "w-10 h-10 rounded-lg flex items-center justify-center",
+                  file.status === 'uploading' && "bg-primary/20 text-primary",
+                  file.status === 'success' && "bg-success/20 text-success",
+                  file.status === 'error' && "bg-destructive/20 text-destructive"
+                )}>
+                  {file.status === 'uploading' && <Loader2 className="w-5 h-5 animate-spin" />}
+                  {file.status === 'success' && <CheckCircle className="w-5 h-5" />}
+                  {file.status === 'error' && <XCircle className="w-5 h-5" />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <span className="font-medium truncate block">{file.name}</span>
-                  <div className="flex items-center gap-2 mt-2">
-                    <Progress value={file.progress} className="h-1.5 flex-1" />
-                    <span className="text-xs text-muted-foreground">{file.progress}%</span>
-                  </div>
+                  {file.status === 'uploading' && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <Progress value={file.progress} className="h-1.5 flex-1" />
+                      <span className="text-xs text-muted-foreground">{file.progress}%</span>
+                    </div>
+                  )}
+                  {file.status === 'success' && (
+                    <span className="text-xs text-success">Upload concluído</span>
+                  )}
+                  {file.status === 'error' && (
+                    <span className="text-xs text-destructive">Falha no upload</span>
+                  )}
                 </div>
                 <button 
                   onClick={() => handleDeleteUpload(file.id)}
@@ -316,6 +386,7 @@ export function FileUploader() {
             {files.map((file, index) => {
               const FileIcon = getFileIcon(file.name, file.type === 'folder');
               const isFolder = file.type === 'folder';
+              const isDeleting = deletingFile === file.path;
               
               return (
                 <div 
@@ -348,6 +419,20 @@ export function FileUploader() {
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
                         <Download className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteFile(file);
+                        }}
+                        disabled={isDeleting}
+                        className="p-2 rounded-lg hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors"
+                      >
+                        {isDeleting ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
                       </button>
                     </div>
                   )}
