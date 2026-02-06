@@ -102,6 +102,8 @@ const Index = () => {
               {activeTab === 'files' && 'Gerencie arquivos, mods e plugins'}
               {activeTab === 'players' && 'Veja e gerencie jogadores conectados'}
               {activeTab === 'resources' && 'Monitore o desempenho do servidor'}
+              {activeTab === 'console' && 'Visualize logs e envie comandos'}
+              {activeTab === 'settings' && 'Configure seu servidor e painel'}
             </p>
           </div>
 
