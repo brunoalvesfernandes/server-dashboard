@@ -6,6 +6,7 @@ import { SystemCharts } from "@/components/panel/SystemCharts";
 import { PlayersList } from "@/components/panel/PlayersList";
 import { FileUploader } from "@/components/panel/FileUploader";
 import { ServerConsole } from "@/components/panel/ServerConsole";
+import { ServerSettings } from "@/components/panel/ServerSettings";
 import { useServerData } from "@/hooks/useServerData";
 import { Users, Cpu, HardDrive, Clock } from "lucide-react";
 
