@@ -180,6 +180,30 @@ app.get('/api/logs', async (req, res) => {
   }
 });
 
+// POST /api/command - Executar comando no servidor
+app.post('/api/command', async (req, res) => {
+  try {
+    const { command } = req.body;
+    
+    if (!command || typeof command !== 'string') {
+      return res.status(400).json({ error: 'Comando inválido' });
+    }
+    
+    // Executa o comando via screen ou diretamente no serviço
+    // Adapte conforme sua configuração (screen, tmux, rcon, etc)
+    const result = await runCommand(`echo "${command}" | sudo tee -a /opt/hytale/commands.log`);
+    
+    res.json({ 
+      success: true, 
+      message: `Comando "${command}" enviado`,
+      result 
+    });
+  } catch (error) {
+    console.error('Erro ao executar comando:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // GET /api/files - Lista arquivos
 app.get('/api/files', async (req, res) => {
   try {

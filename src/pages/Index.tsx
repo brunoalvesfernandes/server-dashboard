@@ -6,10 +6,12 @@ import { SystemCharts } from "@/components/panel/SystemCharts";
 import { PlayersList } from "@/components/panel/PlayersList";
 import { FileUploader } from "@/components/panel/FileUploader";
 import { ServerConsole } from "@/components/panel/ServerConsole";
+import { useServerData } from "@/hooks/useServerData";
 import { Users, Cpu, HardDrive, Clock } from "lucide-react";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const { stats, players } = useServerData();
 
   const renderContent = () => {
     switch (activeTab) {
@@ -28,30 +30,29 @@ const Index = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <StatsCard
                 title="Players Online"
-                value={12}
-                subtitle="de 50 slots"
+                value={players?.online || 0}
+                subtitle={`de ${players?.max || 50} slots`}
                 icon={Users}
                 variant="primary"
-                trend={{ value: 15, isPositive: true }}
               />
               <StatsCard
                 title="Uso de CPU"
-                value="45%"
-                subtitle="2 cores / 4 total"
+                value={`${stats?.cpu || 0}%`}
+                subtitle="Processador"
                 icon={Cpu}
                 variant="success"
               />
               <StatsCard
                 title="Memória RAM"
-                value="4.9 GB"
-                subtitle="de 8 GB alocados"
+                value={`${stats?.usedRam || 0} GB`}
+                subtitle={`de ${stats?.totalRam || 0} GB alocados`}
                 icon={HardDrive}
                 variant="warning"
               />
               <StatsCard
                 title="Uptime"
-                value="7d 14h"
-                subtitle="99.8% disponibilidade"
+                value={stats?.uptime || '-'}
+                subtitle="Tempo online"
                 icon={Clock}
                 variant="default"
               />

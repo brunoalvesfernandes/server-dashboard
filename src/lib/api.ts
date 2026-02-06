@@ -106,6 +106,11 @@ export const api = {
     serverAction: (action: 'start' | 'stop' | 'restart') =>
         apiRequest<{ success: boolean; message: string }>(`/api/server/${action}`, { method: 'POST' }),
     getLogs: (lines = 100) => apiRequest<{ logs: string[] }>(`/api/logs?lines=${lines}`),
+    sendCommand: (command: string) => 
+        apiRequest<{ success: boolean; message: string; result?: string }>('/api/command', { 
+            method: 'POST', 
+            body: JSON.stringify({ command }) 
+        }),
     getFiles: (path = '') => apiRequest<{ path: string; files: any[] }>(`/api/files?path=${encodeURIComponent(path)}`),
     uploadFile: async (file: File, path: string = '') => {
         const formData = new FormData();
