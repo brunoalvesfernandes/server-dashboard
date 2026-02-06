@@ -6,6 +6,7 @@ import { SystemCharts } from "@/components/panel/SystemCharts";
 import { PlayersList } from "@/components/panel/PlayersList";
 import { FileUploader } from "@/components/panel/FileUploader";
 import { ServerConsole } from "@/components/panel/ServerConsole";
+import { ServerSettings } from "@/components/panel/ServerSettings";
 import { useServerData } from "@/hooks/useServerData";
 import { Users, Cpu, HardDrive, Clock } from "lucide-react";
 
@@ -23,6 +24,8 @@ const Index = () => {
         return <SystemCharts />;
       case 'console':
         return <ServerConsole />;
+      case 'settings':
+        return <ServerSettings />;
       default:
         return (
           <div className="space-y-6">
@@ -99,6 +102,8 @@ const Index = () => {
               {activeTab === 'files' && 'Gerencie arquivos, mods e plugins'}
               {activeTab === 'players' && 'Veja e gerencie jogadores conectados'}
               {activeTab === 'resources' && 'Monitore o desempenho do servidor'}
+              {activeTab === 'console' && 'Visualize logs e envie comandos'}
+              {activeTab === 'settings' && 'Configure seu servidor e painel'}
             </p>
           </div>
 
