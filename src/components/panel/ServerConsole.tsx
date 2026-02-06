@@ -37,7 +37,7 @@ export function ServerConsole({ maxLines = 200 }: ServerConsoleProps) {
 
   useEffect(() => {
     fetchLogs();
-    
+
     // Atualiza logs a cada 3 segundos
     const interval = setInterval(fetchLogs, 3000);
     return () => clearInterval(interval);
@@ -70,18 +70,18 @@ export function ServerConsole({ maxLines = 200 }: ServerConsoleProps) {
     setSendingCommand(true);
     try {
       const result = await api.sendCommand(command.trim());
-      
+
       // Adiciona ao histórico
       setCommandHistory(prev => [command.trim(), ...prev.slice(0, 49)]);
       setHistoryIndex(-1);
-      
+
       toast({
         title: "Comando enviado",
         description: result.message,
       });
-      
+
       setCommand("");
-      
+
       // Atualiza logs após enviar comando
       setTimeout(fetchLogs, 500);
     } catch (err) {
@@ -124,17 +124,44 @@ export function ServerConsole({ maxLines = 200 }: ServerConsoleProps) {
     : logs;
 
   const getLogColor = (log: string) => {
-    if (log.includes("ERROR") || log.includes("error") || log.includes("Exception")) {
-      return "text-destructive";
+    const l = log.toLowerCase();
+
+    // erros / exceções
+    if (
+      l.includes(" error") ||
+      l.includes("[error") ||
+      l.includes("exception") ||
+      l.includes("fatal") ||
+      l.includes("severe") ||
+      l.includes("stacktrace")
+    ) {
+      return "text-red-400";
     }
-    if (log.includes("WARN") || log.includes("warn")) {
-      return "text-warning";
+
+    // warning
+    if (l.includes("warn") || l.includes("[warn")) {
+      return "text-yellow-300";
     }
-    if (log.includes("INFO") || log.includes("info")) {
-      return "text-primary";
+
+    // eventos legais / status
+    if (l.includes("started") || l.includes("online") || l.includes("listening")) {
+      return "text-emerald-300";
     }
-    return "text-muted-foreground";
+
+    // info (menos “azul chapado”)
+    if (l.includes("info") || l.includes("[info")) {
+      return "text-sky-300";
+    }
+
+    // comandos digitados / $ (opcional)
+    if (l.trim().startsWith("$") || l.includes("comando")) {
+      return "text-violet-300";
+    }
+
+    // padrão
+    return "text-slate-300";
   };
+
 
   return (
     <div className="space-y-4">
@@ -230,17 +257,34 @@ export function ServerConsole({ maxLines = 200 }: ServerConsoleProps) {
               </div>
             ) : (
               <div className="space-y-0.5">
-                {filteredLogs.map((log, index) => (
-                  <div
-                    key={index}
-                    className={cn(
-                      "py-0.5 hover:bg-white/5 rounded px-1 -mx-1",
-                      getLogColor(log)
-                    )}
-                  >
-                    {log}
-                  </div>
-                ))}
+                {filteredLogs.map((log, index) => {
+                  const match = log.match(/\[(INFO|WARN|ERROR|FINE|DEBUG|TRACE)\]/i);
+                  const level = match?.[1]?.toUpperCase();
+
+                  const levelClass =
+                    level === "ERROR" ? "text-red-400" :
+                      level === "WARN" ? "text-yellow-300" :
+                        level === "INFO" ? "text-sky-300" :
+                          level === "DEBUG" || level === "TRACE" ? "text-slate-400" :
+                            "text-slate-300";
+
+                  return (
+                    <div
+                      key={index}
+                      className={cn("py-0.5 hover:bg-white/5 rounded px-1 -mx-1 text-slate-200")}
+                    >
+                      {level ? (
+                        <>
+                          <span className={cn("mr-2", levelClass)}>[{level}]</span>
+                          <span className={getLogColor(log)}>{log.replace(match![0], "").trim()}</span>
+                        </>
+                      ) : (
+                        <span className={getLogColor(log)}>{log}</span>
+                      )}
+                    </div>
+                  );
+                })}
+
               </div>
             )}
           </div>
@@ -265,8 +309,8 @@ export function ServerConsole({ maxLines = 200 }: ServerConsoleProps) {
               disabled={!command.trim() || sendingCommand}
               className={cn(
                 "p-2 rounded-lg transition-colors",
-                command.trim() 
-                  ? "bg-primary text-primary-foreground hover:bg-primary/80" 
+                command.trim()
+                  ? "bg-primary text-primary-foreground hover:bg-primary/80"
                   : "bg-muted text-muted-foreground cursor-not-allowed"
               )}
             >
