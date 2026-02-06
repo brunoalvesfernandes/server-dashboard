@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, Crown, Shield, User, MoreVertical, Ban, MessageSquare, UserX } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { api, type Player as ApiPlayer } from "@/lib/api";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,33 +10,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-interface Player {
-  id: string;
-  name: string;
-  avatar: string;
-  role: 'owner' | 'admin' | 'mod' | 'vip' | 'player';
-  status: 'online' | 'afk' | 'busy';
-  ping: number;
-  playtime: string;
-  joinedAt: string;
+// Interface atualizada para corresponder ao backend
+interface Player extends ApiPlayer {
+  afk: boolean;
 }
 
-const mockPlayers: Player[] = [
-  { id: '1', name: 'DragonSlayer99', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=dragon', role: 'owner', status: 'online', ping: 12, playtime: '156h 23m', joinedAt: '2 anos' },
-  { id: '2', name: 'CyberNinja', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=ninja', role: 'admin', status: 'online', ping: 24, playtime: '89h 45m', joinedAt: '1 ano' },
-  { id: '3', name: 'PixelMaster', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=pixel', role: 'mod', status: 'online', ping: 45, playtime: '234h 12m', joinedAt: '8 meses' },
-  { id: '4', name: 'StarGazer42', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=star', role: 'vip', status: 'afk', ping: 67, playtime: '67h 30m', joinedAt: '3 meses' },
-  { id: '5', name: 'ThunderBolt', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=thunder', role: 'player', status: 'online', ping: 89, playtime: '12h 45m', joinedAt: '2 semanas' },
-  { id: '6', name: 'ShadowWalker', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=shadow', role: 'player', status: 'online', ping: 34, playtime: '45h 20m', joinedAt: '1 mês' },
-  { id: '7', name: 'FlameKnight', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=flame', role: 'vip', status: 'busy', ping: 56, playtime: '78h 10m', joinedAt: '5 meses' },
-  { id: '8', name: 'IceQueen', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=ice', role: 'mod', status: 'online', ping: 23, playtime: '189h 55m', joinedAt: '10 meses' },
-  { id: '9', name: 'NightHawk', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=hawk', role: 'player', status: 'online', ping: 78, playtime: '5h 30m', joinedAt: '3 dias' },
-  { id: '10', name: 'StormBreaker', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=storm', role: 'player', status: 'online', ping: 45, playtime: '23h 15m', joinedAt: '1 semana' },
-  { id: '11', name: 'MysticMage', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=mage', role: 'vip', status: 'afk', ping: 112, playtime: '56h 40m', joinedAt: '2 meses' },
-  { id: '12', name: 'BladeRunner', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=blade', role: 'player', status: 'online', ping: 34, playtime: '8h 20m', joinedAt: '5 dias' },
-];
-
-const roleConfig = {
+const roleConfig: Record<string, { icon: typeof Crown | typeof Shield | typeof User; color: string; bg: string; label: string }> = {
   owner: { icon: Crown, color: 'text-warning', bg: 'bg-warning/20', label: 'Dono' },
   admin: { icon: Shield, color: 'text-destructive', bg: 'bg-destructive/20', label: 'Admin' },
   mod: { icon: Shield, color: 'text-primary', bg: 'bg-primary/20', label: 'Mod' },
@@ -50,16 +30,40 @@ const statusConfig = {
 };
 
 export function PlayersList() {
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [online, setOnline] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRole, setSelectedRole] = useState<string>('all');
 
-  const filteredPlayers = mockPlayers.filter(player => {
+  // Buscar players reais da API
+  useEffect(() => {
+    const loadPlayers = async () => {
+      try {
+        const data = await api.getPlayers();
+        // Adiciona a propriedade afk aos players (convertendo role para lowercase para compatibilidade)
+        const playersWithAfk = data.players.map(player => ({
+          ...player,
+          afk: false, // O backend deve enviar isso, mas por enquanto definimos como false
+          role: player.role.toLowerCase() // Converte para lowercase para compatibilidade com roleConfig
+        }));
+        setPlayers(playersWithAfk);
+        setOnline(data.online);
+      } catch (e) {
+        console.error("Erro ao buscar players", e);
+      }
+    };
+
+    loadPlayers();
+    const interval = setInterval(loadPlayers, 2000); // Atualiza a cada 2s
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const filteredPlayers = players.filter(player => {
     const matchesSearch = player.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesRole = selectedRole === 'all' || player.role === selectedRole;
     return matchesSearch && matchesRole;
   });
-
-  const onlinePlayers = mockPlayers.filter(p => p.status === 'online').length;
 
   return (
     <div className="glass-card p-6">
@@ -69,11 +73,11 @@ export function PlayersList() {
           <h2 className="font-display text-xl font-bold flex items-center gap-2">
             Players Online
             <span className="px-2 py-0.5 text-sm bg-success/20 text-success rounded-full">
-              {onlinePlayers}
+              {online}
             </span>
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
-            {mockPlayers.length} jogadores no total
+            {players.length} jogadores no total
           </p>
         </div>
 
@@ -108,8 +112,8 @@ export function PlayersList() {
       {/* Players Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 max-h-[500px] overflow-y-auto scrollbar-thin pr-2">
         {filteredPlayers.map((player, index) => {
-          const role = roleConfig[player.role];
-          const status = statusConfig[player.status];
+          const role = roleConfig[player.role] || roleConfig.player;
+          const status = player.afk ? statusConfig.afk : statusConfig.online;
           const RoleIcon = role.icon;
 
           return (
@@ -149,7 +153,7 @@ export function PlayersList() {
                   )}>
                     {player.ping}ms
                   </span>
-                  <span>{player.playtime}</span>
+                  <span>{player.joinedAt}</span>
                 </div>
               </div>
 

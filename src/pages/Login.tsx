@@ -103,9 +103,6 @@ export default function Login() {
             </Button>
           </form>
 
-          <p className="text-xs text-muted-foreground text-center mt-4">
-            Credenciais padrão: admin / hytale123
-          </p>
         </CardContent>
       </Card>
     </div>
