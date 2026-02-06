@@ -24,6 +24,8 @@ const Index = () => {
         return <SystemCharts />;
       case 'console':
         return <ServerConsole />;
+      case 'settings':
+        return <ServerSettings />;
       default:
         return (
           <div className="space-y-6">
