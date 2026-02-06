@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Terminal, RefreshCw, Download, Trash2, Search } from "lucide-react";
+import { Terminal, RefreshCw, Download, Trash2, Search, Send } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 interface ServerConsoleProps {
   maxLines?: number;
@@ -13,7 +14,13 @@ export function ServerConsole({ maxLines = 200 }: ServerConsoleProps) {
   const [error, setError] = useState<string | null>(null);
   const [autoScroll, setAutoScroll] = useState(true);
   const [filter, setFilter] = useState("");
+  const [command, setCommand] = useState("");
+  const [sendingCommand, setSendingCommand] = useState(false);
+  const [commandHistory, setCommandHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
   const consoleRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   const fetchLogs = useCallback(async () => {
     try {
@@ -55,6 +62,61 @@ export function ServerConsole({ maxLines = 200 }: ServerConsoleProps) {
     a.download = `server-logs-${new Date().toISOString().split("T")[0]}.txt`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleSendCommand = async () => {
+    if (!command.trim() || sendingCommand) return;
+
+    setSendingCommand(true);
+    try {
+      const result = await api.sendCommand(command.trim());
+      
+      // Adiciona ao histórico
+      setCommandHistory(prev => [command.trim(), ...prev.slice(0, 49)]);
+      setHistoryIndex(-1);
+      
+      toast({
+        title: "Comando enviado",
+        description: result.message,
+      });
+      
+      setCommand("");
+      
+      // Atualiza logs após enviar comando
+      setTimeout(fetchLogs, 500);
+    } catch (err) {
+      console.error("Erro ao enviar comando:", err);
+      toast({
+        title: "Erro",
+        description: "Falha ao enviar comando",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingCommand(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      handleSendCommand();
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (commandHistory.length > 0) {
+        const newIndex = Math.min(historyIndex + 1, commandHistory.length - 1);
+        setHistoryIndex(newIndex);
+        setCommand(commandHistory[newIndex]);
+      }
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (historyIndex > 0) {
+        const newIndex = historyIndex - 1;
+        setHistoryIndex(newIndex);
+        setCommand(commandHistory[newIndex]);
+      } else if (historyIndex === 0) {
+        setHistoryIndex(-1);
+        setCommand("");
+      }
+    }
   };
 
   const filteredLogs = filter
@@ -155,7 +217,7 @@ export function ServerConsole({ maxLines = 200 }: ServerConsoleProps) {
         ) : (
           <div
             ref={consoleRef}
-            className="h-[500px] overflow-y-auto font-mono text-xs p-4 bg-[#0d1117] scrollbar-thin"
+            className="h-[400px] overflow-y-auto font-mono text-xs p-4 bg-[#0d1117] scrollbar-thin"
           >
             {loading && logs.length === 0 ? (
               <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -183,6 +245,38 @@ export function ServerConsole({ maxLines = 200 }: ServerConsoleProps) {
             )}
           </div>
         )}
+
+        {/* Command Input */}
+        <div className="border-t border-border bg-[#0d1117] p-3">
+          <div className="flex items-center gap-2">
+            <span className="text-primary font-mono text-sm">$</span>
+            <input
+              ref={inputRef}
+              type="text"
+              value={command}
+              onChange={(e) => setCommand(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Digite um comando..."
+              disabled={sendingCommand}
+              className="flex-1 bg-transparent border-none outline-none text-sm font-mono text-foreground placeholder:text-muted-foreground"
+            />
+            <button
+              onClick={handleSendCommand}
+              disabled={!command.trim() || sendingCommand}
+              className={cn(
+                "p-2 rounded-lg transition-colors",
+                command.trim() 
+                  ? "bg-primary text-primary-foreground hover:bg-primary/80" 
+                  : "bg-muted text-muted-foreground cursor-not-allowed"
+              )}
+            >
+              <Send className="w-4 h-4" />
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            Use ↑↓ para navegar no histórico de comandos
+          </p>
+        </div>
       </div>
     </div>
   );
