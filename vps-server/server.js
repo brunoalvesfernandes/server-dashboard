@@ -171,11 +171,18 @@ app.post('/api/server/:action', async (req, res) => {
 // GET /api/logs - Logs do servidor
 app.get('/api/logs', async (req, res) => {
   try {
-    const lines = req.query.lines || 100;
+    const lines = Number(req.query.lines || 100);
+    const logFile = path.join(CONFIG.serverDir, 'console.log');
+
+    if (fs.existsSync(logFile)) {
+      const out = await runCommand(`tail -n ${lines} ${escapeShellArg(logFile)}`);
+      return res.json({ logs: out.split('\n') });
+    }
+
+    // fallback: se não existir arquivo, tenta journalctl
     const logs = await runCommand(`sudo journalctl -u ${CONFIG.serviceName} -n ${lines} --no-pager`);
     res.json({ logs: logs.split('\n') });
   } catch (error) {
-    console.error('Erro em /api/logs:', error);
     res.status(500).json({ error: error.message });
   }
 });
