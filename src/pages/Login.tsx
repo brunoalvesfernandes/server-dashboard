@@ -9,7 +9,7 @@ import { toast } from "sonner";
 
 // Credenciais simples (em produção, use autenticação real)
 const ADMIN_USER = "admin";
-const ADMIN_PASS = "hytale123";
+const ADMIN_PASS = "Brunoalves1*";
 
 export default function Login() {
   const [username, setUsername] = useState("");
@@ -103,9 +103,6 @@ export default function Login() {
             </Button>
           </form>
 
-          <p className="text-xs text-muted-foreground text-center mt-4">
-            Credenciais padrão: admin / hytale123
-          </p>
         </CardContent>
       </Card>
     </div>
