@@ -135,7 +135,7 @@ app.get('/api/players', (req, res) => {
       id: p.name,
       name: p.name,
       role: "Player",
-      avatar: `https://mc-heads.net/avatar/${p.name}`, 
+      avatar: `https://crafthead.net/hytale/avatar/${p.name}`, 
       joinedAt: new Date(p.joinedAt).toLocaleTimeString(),
       ping: Math.floor(Math.random() * 80) + 30,
       afk: Date.now() - p.lastSeen > 60000
@@ -147,7 +147,7 @@ app.get('/api/players', (req, res) => {
       players: formatted
     });
   } catch {
-    res.json({ online: 0, max: 50, players: [] });
+    res.json({ online: 0, max: 100, players: [] });
   }
 });
 

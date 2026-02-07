@@ -158,18 +158,6 @@ export function ServerSettings() {
             />
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Máximo de Players</label>
-            <input
-              type="number"
-              value={config.maxPlayers}
-              onChange={(e) => handleConfigChange("maxPlayers", e.target.value)}
-              className="w-full px-4 py-2 bg-input border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-              placeholder="50"
-              min="1"
-              max="1000"
-            />
-          </div>
         </div>
 
         <button
@@ -202,32 +190,34 @@ export function ServerSettings() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">IP do Servidor</label>
-            <input
-              type="text"
-              value={config.serverIp}
-              onChange={(e) => handleConfigChange("serverIp", e.target.value)}
-              className="w-full px-4 py-2 bg-input border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-              placeholder="127.0.0.1"
-            />
+            <div className="w-full px-4 py-2 bg-muted border border-border rounded-lg text-sm text-muted-foreground">
+              {config.serverIp}
+            </div>
             <p className="text-xs text-muted-foreground">
-              Endereço IP para conexão dos jogadores
+              Fixo - não editável
             </p>
           </div>
 
           <div className="space-y-2">
             <label className="text-sm font-medium">Porta</label>
-            <input
-              type="text"
-              value={config.serverPort}
-              onChange={(e) => handleConfigChange("serverPort", e.target.value)}
-              className="w-full px-4 py-2 bg-input border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-              placeholder="25565"
-            />
+            <div className="w-full px-4 py-2 bg-muted border border-border rounded-lg text-sm text-muted-foreground">
+              {config.serverPort}
+            </div>
             <p className="text-xs text-muted-foreground">
-              Porta padrão: 25565
+              Fixo - não editável
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Máximo de Players</label>
+            <div className="w-full px-4 py-2 bg-muted border border-border rounded-lg text-sm text-muted-foreground">
+              {config.maxPlayers}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Fixo - não editável
             </p>
           </div>
         </div>
