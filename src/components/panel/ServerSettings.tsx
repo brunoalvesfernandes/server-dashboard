@@ -1,15 +1,8 @@
 import { useState, useEffect } from "react";
-import { Save, Server, Lock, Network, RefreshCw, Eye, EyeOff } from "lucide-react";
+import { Save, Server, Lock, Network, RefreshCw, Eye, EyeOff, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-
-interface ServerConfig {
-  serverName: string;
-  serverIp: string;
-  serverPort: string;
-  maxPlayers: string;
-  motd: string;
-}
+import { api, ServerConfig } from "@/lib/api";
 
 export function ServerSettings() {
   const [config, setConfig] = useState<ServerConfig>({
@@ -33,15 +26,23 @@ export function ServerSettings() {
   });
 
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [changingPassword, setChangingPassword] = useState(false);
   const { toast } = useToast();
 
-  // Carrega configurações salvas do localStorage
+  // Carrega configurações do backend
   useEffect(() => {
-    const savedConfig = localStorage.getItem("hytale-server-config");
-    if (savedConfig) {
-      setConfig(JSON.parse(savedConfig));
-    }
+    const loadConfig = async () => {
+      try {
+        const data = await api.getConfig();
+        setConfig(data);
+      } catch (err) {
+        console.error('Erro ao carregar config:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadConfig();
   }, []);
 
   const handleConfigChange = (key: keyof ServerConfig, value: string) => {
@@ -51,8 +52,7 @@ export function ServerSettings() {
   const handleSaveConfig = async () => {
     setSaving(true);
     try {
-      // Salva no localStorage (em produção, enviaria para o backend)
-      localStorage.setItem("hytale-server-config", JSON.stringify(config));
+      await api.saveConfig(config);
       
       toast({
         title: "Configurações salvas",
@@ -88,21 +88,9 @@ export function ServerSettings() {
       return;
     }
 
-    // Verifica senha atual (em produção, validaria no backend)
-    const storedPassword = "Brunoalves1*"; // Senha padrão
-    if (passwordForm.currentPassword !== storedPassword) {
-      toast({
-        title: "Erro",
-        description: "Senha atual incorreta",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setChangingPassword(true);
     try {
-      // Salva nova senha (em produção, enviaria para o backend)
-      localStorage.setItem("hytale-admin-password", passwordForm.newPassword);
+      await api.changePassword(passwordForm.currentPassword, passwordForm.newPassword);
       
       toast({
         title: "Senha alterada",
@@ -114,16 +102,24 @@ export function ServerSettings() {
         newPassword: "",
         confirmPassword: "",
       });
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Erro",
-        description: "Falha ao alterar senha",
+        description: error.message || "Falha ao alterar senha",
         variant: "destructive",
       });
     } finally {
       setChangingPassword(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

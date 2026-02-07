@@ -297,6 +297,252 @@ app.delete('/api/files/:filePath(*)', (req, res) => {
   }
 });
 
+// ============================================
+// CONFIG ENDPOINTS
+// ============================================
+
+const CONFIG_FILE = path.join(CONFIG.serverDir, 'panel-config.json');
+
+// GET /api/config - Obter configurações
+app.get('/api/config', (req, res) => {
+  try {
+    if (fs.existsSync(CONFIG_FILE)) {
+      const config = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+      return res.json(config);
+    }
+    // Configuração padrão
+    res.json({
+      serverName: 'Hytale Brasil',
+      serverIp: '168.75.85.54',
+      serverPort: '25565',
+      maxPlayers: '50',
+      motd: 'Bem-vindo ao servidor Hytale!'
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/config - Salvar configurações
+app.post('/api/config', (req, res) => {
+  try {
+    const config = req.body;
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
+    res.json({ success: true, message: 'Configurações salvas com sucesso' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/change-password - Alterar senha
+app.post('/api/change-password', (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const passwordFile = path.join(CONFIG.serverDir, 'panel-password.json');
+    
+    let storedPassword = 'Brunoalves1*'; // Senha padrão
+    if (fs.existsSync(passwordFile)) {
+      const data = JSON.parse(fs.readFileSync(passwordFile, 'utf8'));
+      storedPassword = data.password;
+    }
+    
+    if (currentPassword !== storedPassword) {
+      return res.status(401).json({ error: 'Senha atual incorreta' });
+    }
+    
+    fs.writeFileSync(passwordFile, JSON.stringify({ password: newPassword }, null, 2));
+    res.json({ success: true, message: 'Senha alterada com sucesso' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================
+// BACKUP ENDPOINTS
+// ============================================
+
+const BACKUP_DIR = path.join(CONFIG.serverDir, 'backups');
+
+// GET /api/backups - Listar backups
+app.get('/api/backups', (req, res) => {
+  try {
+    if (!fs.existsSync(BACKUP_DIR)) {
+      fs.mkdirSync(BACKUP_DIR, { recursive: true });
+    }
+    
+    const files = fs.readdirSync(BACKUP_DIR);
+    const backups = files
+      .filter(f => f.endsWith('.tar.gz') || f.endsWith('.zip'))
+      .map(f => {
+        const stat = fs.statSync(path.join(BACKUP_DIR, f));
+        return {
+          name: f,
+          size: stat.size,
+          createdAt: stat.birthtime.toISOString(),
+          path: path.join(BACKUP_DIR, f)
+        };
+      })
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    
+    res.json({ backups });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/backups - Criar backup
+app.post('/api/backups', async (req, res) => {
+  try {
+    if (!fs.existsSync(BACKUP_DIR)) {
+      fs.mkdirSync(BACKUP_DIR, { recursive: true });
+    }
+    
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const backupName = `backup-${timestamp}.tar.gz`;
+    const backupPath = path.join(BACKUP_DIR, backupName);
+    
+    // Cria backup compactado (excluindo a pasta backups)
+    await runCommand(`cd ${CONFIG.serverDir} && tar --exclude='backups' -czf ${backupPath} .`);
+    
+    const stat = fs.statSync(backupPath);
+    res.json({ 
+      success: true, 
+      message: `Backup ${backupName} criado com sucesso`,
+      backup: {
+        name: backupName,
+        size: stat.size,
+        createdAt: stat.birthtime.toISOString()
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE /api/backups/:name - Deletar backup
+app.delete('/api/backups/:name', (req, res) => {
+  try {
+    const backupPath = path.join(BACKUP_DIR, req.params.name);
+    
+    if (!backupPath.startsWith(BACKUP_DIR)) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+    
+    if (!fs.existsSync(backupPath)) {
+      return res.status(404).json({ error: 'Backup não encontrado' });
+    }
+    
+    fs.unlinkSync(backupPath);
+    res.json({ success: true, message: 'Backup deletado com sucesso' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/backups/:name/restore - Restaurar backup
+app.post('/api/backups/:name/restore', async (req, res) => {
+  try {
+    const backupPath = path.join(BACKUP_DIR, req.params.name);
+    
+    if (!backupPath.startsWith(BACKUP_DIR)) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+    
+    if (!fs.existsSync(backupPath)) {
+      return res.status(404).json({ error: 'Backup não encontrado' });
+    }
+    
+    // Para o servidor antes de restaurar
+    try {
+      await runCommand(`sudo systemctl stop ${CONFIG.serviceName}`);
+    } catch (e) {
+      console.log('Servidor já estava parado ou erro ao parar:', e.message);
+    }
+    
+    // Restaura o backup
+    await runCommand(`cd ${CONFIG.serverDir} && tar -xzf ${backupPath} --overwrite`);
+    
+    // Reinicia o servidor
+    await runCommand(`sudo systemctl start ${CONFIG.serviceName}`);
+    
+    res.json({ success: true, message: 'Backup restaurado com sucesso. Servidor reiniciado.' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================
+// PLUGINS ENDPOINTS
+// ============================================
+
+// GET /api/plugins - Listar plugins/mods
+app.get('/api/plugins', (req, res) => {
+  try {
+    const plugins = [];
+    
+    // Verifica pasta mods
+    const modsDir = path.join(CONFIG.serverDir, 'mods');
+    if (fs.existsSync(modsDir)) {
+      const files = fs.readdirSync(modsDir);
+      files.filter(f => f.endsWith('.jar')).forEach(f => {
+        const stat = fs.statSync(path.join(modsDir, f));
+        const name = f.replace('.jar', '').replace(/-\d+\.\d+.*$/, '');
+        const versionMatch = f.match(/-(\d+\.\d+[.\d]*)/);
+        plugins.push({
+          name: name.charAt(0).toUpperCase() + name.slice(1).replace(/-/g, ' '),
+          version: versionMatch ? versionMatch[1] : '',
+          enabled: true,
+          description: `Mod instalado na pasta mods/`,
+          file: f,
+          size: stat.size
+        });
+      });
+    }
+    
+    // Verifica pasta plugins
+    const pluginsDir = path.join(CONFIG.serverDir, 'plugins');
+    if (fs.existsSync(pluginsDir)) {
+      const files = fs.readdirSync(pluginsDir);
+      files.filter(f => f.endsWith('.jar')).forEach(f => {
+        const stat = fs.statSync(path.join(pluginsDir, f));
+        const name = f.replace('.jar', '').replace(/-\d+\.\d+.*$/, '');
+        const versionMatch = f.match(/-(\d+\.\d+[.\d]*)/);
+        plugins.push({
+          name: name.charAt(0).toUpperCase() + name.slice(1).replace(/-/g, ' '),
+          version: versionMatch ? versionMatch[1] : '',
+          enabled: true,
+          description: `Plugin instalado na pasta plugins/`,
+          file: f,
+          size: stat.size
+        });
+      });
+    }
+    
+    // Verifica pasta mods desativados
+    const disabledModsDir = path.join(CONFIG.serverDir, 'mods-disabled');
+    if (fs.existsSync(disabledModsDir)) {
+      const files = fs.readdirSync(disabledModsDir);
+      files.filter(f => f.endsWith('.jar')).forEach(f => {
+        const stat = fs.statSync(path.join(disabledModsDir, f));
+        const name = f.replace('.jar', '').replace(/-\d+\.\d+.*$/, '');
+        const versionMatch = f.match(/-(\d+\.\d+[.\d]*)/);
+        plugins.push({
+          name: name.charAt(0).toUpperCase() + name.slice(1).replace(/-/g, ' '),
+          version: versionMatch ? versionMatch[1] : '',
+          enabled: false,
+          description: `Mod desativado`,
+          file: f,
+          size: stat.size
+        });
+      });
+    }
+    
+    res.json({ plugins });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

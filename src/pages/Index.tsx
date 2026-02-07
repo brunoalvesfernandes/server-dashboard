@@ -7,6 +7,8 @@ import { PlayersList } from "@/components/panel/PlayersList";
 import { FileUploader } from "@/components/panel/FileUploader";
 import { ServerConsole } from "@/components/panel/ServerConsole";
 import { ServerSettings } from "@/components/panel/ServerSettings";
+import { ServerBackups } from "@/components/panel/ServerBackups";
+import { ServerPlugins } from "@/components/panel/ServerPlugins";
 import { useServerData } from "@/hooks/useServerData";
 import { Users, Cpu, HardDrive, Clock } from "lucide-react";
 
@@ -24,6 +26,10 @@ const Index = () => {
         return <SystemCharts />;
       case 'console':
         return <ServerConsole />;
+      case 'backups':
+        return <ServerBackups />;
+      case 'plugins':
+        return <ServerPlugins />;
       case 'settings':
         return <ServerSettings />;
       default:
