@@ -99,6 +99,31 @@ async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T
     return response.json();
 }
 
+// Interfaces para config e backups
+export interface ServerConfig {
+    serverName: string;
+    serverIp: string;
+    serverPort: string;
+    maxPlayers: string;
+    motd: string;
+}
+
+export interface Backup {
+    name: string;
+    size: number;
+    createdAt: string;
+    path: string;
+}
+
+export interface Plugin {
+    name: string;
+    version: string;
+    enabled: boolean;
+    description: string;
+    file: string;
+    size: number;
+}
+
 // Exporta funções da API
 export const api = {
     getStats: () => apiRequest<ServerStats>('/api/stats'),
@@ -137,5 +162,30 @@ export const api = {
 
     deleteFile: (filePath: string) =>
         apiRequest<{ success: boolean; message: string }>(`/api/files/${encodeURIComponent(filePath)}`, { method: 'DELETE' }),
+    
+    // Config endpoints
+    getConfig: () => apiRequest<ServerConfig>('/api/config'),
+    saveConfig: (config: ServerConfig) => 
+        apiRequest<{ success: boolean; message: string }>('/api/config', { 
+            method: 'POST', 
+            body: JSON.stringify(config) 
+        }),
+    changePassword: (currentPassword: string, newPassword: string) =>
+        apiRequest<{ success: boolean; message: string }>('/api/change-password', {
+            method: 'POST',
+            body: JSON.stringify({ currentPassword, newPassword })
+        }),
+    
+    // Backup endpoints
+    getBackups: () => apiRequest<{ backups: Backup[] }>('/api/backups'),
+    createBackup: () => apiRequest<{ success: boolean; message: string; backup?: Backup }>('/api/backups', { method: 'POST' }),
+    deleteBackup: (name: string) => 
+        apiRequest<{ success: boolean; message: string }>(`/api/backups/${encodeURIComponent(name)}`, { method: 'DELETE' }),
+    restoreBackup: (name: string) =>
+        apiRequest<{ success: boolean; message: string }>(`/api/backups/${encodeURIComponent(name)}/restore`, { method: 'POST' }),
+    
+    // Plugins endpoints
+    getPlugins: () => apiRequest<{ plugins: Plugin[] }>('/api/plugins'),
+    
     isLovablePreview,
 };
